@@ -5,10 +5,13 @@ let gameOptions = {
     fallSpeed: 100,
     destroySpeed: 200,
     items: 4,
+    cols: 8,
+    rows: 12,
     boardOffset: {
         x: 100,
         y: 150
-    }
+    },
+    allowBlanks: true
 }
 window.onload = function () {
     let gameConfig = {
@@ -42,12 +45,13 @@ class playGame extends Phaser.Scene {
         this.score = 0
         this.scoreBuffer = 0
         this.match3 = new Match3({
-            rows: 9,
-            columns: 9,
-            items: gameOptions.items
+            rows: gameOptions.rows,
+            columns: gameOptions.cols,
+            items: gameOptions.items,
+            blanksOn: gameOptions.allowBlanks
         });
         //gameOptions.gemSize = (game.config.width - (gameOptions.offsetX * 2)) / gameOptions.cols;
-        gameOptions.gemSize = (game.config.width - (gameOptions.boardOffset.x * 2)) / 9
+        gameOptions.gemSize = (game.config.width - (gameOptions.boardOffset.x * 2)) / gameOptions.cols
         this.match3.generateField();
         this.canPick = true;
         this.drawField();
@@ -58,6 +62,7 @@ class playGame extends Phaser.Scene {
             this.incrementScore();
             this.scoreBuffer--;
         }
+
     }
     incrementScore() {
         this.score += 1;
@@ -189,7 +194,7 @@ class playGame extends Phaser.Scene {
             });
         }
         else {
-            if (this.match3.blankOnBottom()) {
+            if (this.match3.blankOnBottom() && gameOptions.allowBlanks) {
                 this.time.addEvent({
                     delay: 250,
                     callback: this.handleBlanks()
@@ -197,6 +202,10 @@ class playGame extends Phaser.Scene {
             } else {
                 this.canPick = true;
                 this.selectedGem = null;
+                if (this.score > 2000) {
+                    gameOptions.allowBlanks = true;
+                    this.match3.blankOn = true;
+                }
             }
 
         }
@@ -308,6 +317,7 @@ class Match3 {
         this.rows = (obj.rows != undefined) ? obj.rows : 8;
         this.columns = (obj.columns != undefined) ? obj.columns : 7;
         this.items = (obj.items != undefined) ? obj.items : 6;
+        this.blanksOn = (obj.blanksOn != undefined) ? obj.blanksOn : false;
     }
 
     // generates the game field
@@ -319,9 +329,12 @@ class Match3 {
             for (let j = 0; j < this.columns; j++) {
                 do {
                     let randomValue = Math.floor(Math.random() * this.items);
-                    if (Math.random() < .15) {
-                        randomValue = 12
+                    if (this.blanksOn) {
+                        if (Math.random() < .15) {
+                            randomValue = 12
+                        }
                     }
+
                     this.gameArray[i][j] = {
                         value: randomValue,
                         isLocked: false,
@@ -590,6 +603,11 @@ class Match3 {
                 let emptySpaces = this.emptySpacesBelow(0, i) + 1;
                 for (let j = 0; j < emptySpaces; j++) {
                     let randomValue = Math.floor(Math.random() * this.items);
+                    /* if (this.blanksOn) {
+                        if (Math.random() < .15) {
+                            randomValue = 12
+                        }
+                    } */
                     result.push({
                         row: j,
                         column: i,
