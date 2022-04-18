@@ -30,7 +30,7 @@ class playGame extends Phaser.Scene {
         super("PlayGame");
     }
     preload() {
-        this.load.spritesheet("gems", "assets/sprites/gems_numbers_.png", {
+        this.load.spritesheet("gems", "assets/sprites/gems_numbers.png", {
             frameWidth: 100,
             frameHeight: 100
         });
