@@ -1,13 +1,13 @@
 let game;
 let gameOptions = {
-    gemSize: 100,
+    gemSize: 50,
     rotateSpeed: 100,
     fallSpeed: 100,
     destroySpeed: 200,
-    items: 5,
+    items: 4,
     boardOffset: {
         x: 100,
-        y: 50
+        y: 150
     }
 }
 window.onload = function () {
@@ -18,7 +18,7 @@ window.onload = function () {
             autoCenter: Phaser.Scale.CENTER_BOTH,
             parent: "thegame",
             width: 900,
-            height: 900
+            height: 1640
         },
         scene: playGame
     }
@@ -30,40 +30,64 @@ class playGame extends Phaser.Scene {
         super("PlayGame");
     }
     preload() {
-        this.load.spritesheet("gems", "assets/sprites/gems_5.png", {
-            frameWidth: gameOptions.gemSize,
-            frameHeight: gameOptions.gemSize
+        this.load.spritesheet("gems", "assets/sprites/gems_numbers_.png", {
+            frameWidth: 100,
+            frameHeight: 100
         });
+        this.load.bitmapFont('lato', 'assets/fonts/lato_0.png', 'assets/fonts/lato.xml');
     }
     create() {
-
+        this.cameras.main.setBackgroundColor(0x333333);
+        this.scoreText = this.add.bitmapText(450, 75, 'lato', '0', 65).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
+        this.score = 0
+        this.scoreBuffer = 0
         this.match3 = new Match3({
-            rows: 8,
-            columns: 7,
+            rows: 9,
+            columns: 9,
             items: gameOptions.items
         });
+        //gameOptions.gemSize = (game.config.width - (gameOptions.offsetX * 2)) / gameOptions.cols;
+        gameOptions.gemSize = (game.config.width - (gameOptions.boardOffset.x * 2)) / 9
         this.match3.generateField();
         this.canPick = true;
         this.drawField();
         this.input.on("pointerdown", this.gemSelect, this);
     }
+    update() {
+        if (this.scoreBuffer > 0) {
+            this.incrementScore();
+            this.scoreBuffer--;
+        }
+    }
+    incrementScore() {
+        this.score += 1;
+        this.scoreText.setText(this.score);
+    }
     drawField() {
         this.poolArray = [];
         for (let i = 0; i < this.match3.getRows(); i++) {
             for (let j = 0; j < this.match3.getColumns(); j++) {
-                let gemX = gameOptions.boardOffset.x + gameOptions.gemSize * j + gameOptions.gemSize / 2;
+                let gemX = gameOptions.boardOffset.x + gameOptions.gemSize * j + gameOptions.gemSize / 2
                 let gemY = gameOptions.boardOffset.y + gameOptions.gemSize * i + gameOptions.gemSize / 2
                 let gem = this.add.sprite(gemX, gemY, "gems", this.match3.valueAt(i, j));
+                gem.displayWidth = gameOptions.gemSize;
+                gem.displayHeight = gameOptions.gemSize;
                 this.match3.setCustomData(i, j, gem);
             }
         }
     }
     gemSelect(pointer) {
         if (this.canPick) {
-            this.canPick = false;
+
             let row = Math.floor((pointer.y - gameOptions.boardOffset.y) / gameOptions.gemSize);
             let col = Math.floor((pointer.x - gameOptions.boardOffset.x) / gameOptions.gemSize);
+            console.log(this.match3.valueAt(row, col))
+            if (this.match3.valueAt(row, col) == 12) {
+                return
+            }
+            this.canPick = false;
             if (this.match3.validPick(row, col) && !this.match3.isLocked(row, col)) {
+
                 this.tweens.add({
                     targets: this.match3.customDataOf(row, col),
                     angle: 90,
@@ -85,6 +109,7 @@ class playGame extends Phaser.Scene {
     handleMatches() {
         if (this.match3.matchInBoard()) {
             let gemsToRemove = this.match3.getMatchList();
+            this.scoreBuffer += gemsToRemove.length * 10
             let destroyed = 0;
             gemsToRemove.forEach(function (gem) {
                 this.poolArray.push(this.match3.customDataOf(gem.row, gem.column))
@@ -107,7 +132,7 @@ class playGame extends Phaser.Scene {
             for (let i = 0; i < 5; i++) {
                 let locked = this.match3.lockRandomItem();
                 if (locked) {
-                    this.match3.customDataOf(locked.row, locked.column).setFrame(5 + this.match3.valueAt(locked.row, locked.column));
+                    this.match3.customDataOf(locked.row, locked.column).setFrame(6 + this.match3.valueAt(locked.row, locked.column));
                 }
             }
             this.canPick = true;
@@ -164,12 +189,115 @@ class playGame extends Phaser.Scene {
             });
         }
         else {
+            if (this.match3.blankOnBottom()) {
+                this.time.addEvent({
+                    delay: 250,
+                    callback: this.handleBlanks()
+                });
+            } else {
+                this.canPick = true;
+                this.selectedGem = null;
+            }
+
+        }
+    }
+
+    handleBlanks() {
+        if (this.match3.blankOnBottom()) {
+            let gemsToRemove = this.match3.getBlankList();
+            this.scoreBuffer += gemsToRemove.length * 10
+            let destroyed = 0;
+            gemsToRemove.forEach(function (gem) {
+                this.poolArray.push(this.match3.customDataOf(gem.row, gem.column))
+                destroyed++;
+                this.tweens.add({
+                    targets: this.match3.customDataOf(gem.row, gem.column),
+                    alpha: 0,
+                    duration: gameOptions.destroySpeed,
+                    callbackScope: this,
+                    onComplete: function (event, sprite) {
+                        destroyed--;
+                        if (destroyed == 0) {
+                            this.makeGemsFallBlank();
+                        }
+                    }
+                });
+            }.bind(this));
+        }
+        else {
+            for (let i = 0; i < 5; i++) {
+                let locked = this.match3.lockRandomItem();
+                if (locked) {
+                    this.match3.customDataOf(locked.row, locked.column).setFrame(6 + this.match3.valueAt(locked.row, locked.column));
+                }
+            }
             this.canPick = true;
-            this.selectedGem = null;
+        }
+    }
+    makeGemsFallBlank() {
+        let moved = 0;
+        this.match3.removeBlanks();
+        let fallingMovements = this.match3.arrangeBoardAfterMatch();
+        fallingMovements.forEach(function (movement) {
+            moved++;
+            this.tweens.add({
+                targets: this.match3.customDataOf(movement.row, movement.column),
+                y: this.match3.customDataOf(movement.row, movement.column).y + movement.deltaRow * gameOptions.gemSize,
+                duration: gameOptions.fallSpeed * Math.abs(movement.deltaRow),
+                callbackScope: this,
+                onComplete: function () {
+                    moved--;
+                    if (moved == 0) {
+                        this.endOfMove()
+                    }
+                }
+            })
+        }.bind(this));
+        let replenishMovements = this.match3.replenishBoard();
+        replenishMovements.forEach(function (movement) {
+            moved++;
+            let sprite = this.poolArray.pop();
+            sprite.alpha = 1;
+            sprite.y = gameOptions.boardOffset.y + gameOptions.gemSize * (movement.row - movement.deltaRow + 1) - gameOptions.gemSize / 2;
+            sprite.x = gameOptions.boardOffset.x + gameOptions.gemSize * movement.column + gameOptions.gemSize / 2,
+                sprite.angle = 0;
+            sprite.setFrame(this.match3.valueAt(movement.row, movement.column));
+            this.match3.setCustomData(movement.row, movement.column, sprite);
+            this.tweens.add({
+                targets: sprite,
+                y: gameOptions.boardOffset.y + gameOptions.gemSize * movement.row + gameOptions.gemSize / 2,
+                duration: gameOptions.fallSpeed * movement.deltaRow,
+                callbackScope: this,
+                onComplete: function () {
+                    moved--;
+                    if (moved == 0) {
+                        this.endOfMove()
+                    }
+                }
+            });
+        }.bind(this))
+    }
+    endOfMove() {
+        if (this.match3.matchInBoard()) {
+            this.time.addEvent({
+                delay: 250,
+                callback: this.handleMatches()
+            });
+        }
+        else {
+            if (this.match3.blankOnBottom()) {
+                this.time.addEvent({
+                    delay: 250,
+                    callback: this.handleBlanks()
+                });
+            } else {
+                this.canPick = true;
+                this.selectedGem = null;
+            }
+
         }
     }
 }
-
 class Match3 {
 
     // constructor, simply turns obj information into class properties
@@ -191,6 +319,9 @@ class Match3 {
             for (let j = 0; j < this.columns; j++) {
                 do {
                     let randomValue = Math.floor(Math.random() * this.items);
+                    if (Math.random() < .15) {
+                        randomValue = 12
+                    }
                     this.gameArray[i][j] = {
                         value: randomValue,
                         isLocked: false,
@@ -208,7 +339,7 @@ class Match3 {
         let unlockedItems = [];
         for (let i = 0; i < this.rows; i++) {
             for (let j = 0; j < this.columns; j++) {
-                if (!this.isLocked(i, j)) {
+                if (!this.isLocked(i, j) && this.valueAt(i, j) != 12) {
                     unlockedItems.push({
                         row: i,
                         column: j
@@ -255,7 +386,15 @@ class Match3 {
         }
         return false;
     }
+    blankOnBottom() {
 
+        for (let j = 0; j < this.columns; j++) {
+            if (this.valueAt(this.rows - 1, j) == 12) {
+                return true
+            }
+        }
+        return false;
+    }
     // returns true if the item at (row, column) is part of a match
     isPartOfMatch(row, column) {
         return this.isPartOfHorizontalMatch(row, column) || this.isPartOfVerticalMatch(row, column);
@@ -375,7 +514,18 @@ class Match3 {
         }
         return matches;
     }
-
+    getBlankList() {
+        let matches = []
+        for (let j = 0; j < this.columns; j++) {
+            if (this.valueAt(this.rows - 1, j) == 12) {
+                matches.push({
+                    row: this.rows - 1,
+                    column: j
+                });
+            }
+        }
+        return matches
+    }
     // removes all items forming a match
     removeMatches() {
         let matches = this.getMatchList();
@@ -383,7 +533,12 @@ class Match3 {
             this.setEmpty(item.row, item.column)
         }.bind(this))
     }
-
+    removeBlanks() {
+        let matches = this.getBlankList();
+        matches.forEach(function (item) {
+            this.setEmpty(item.row, item.column)
+        }.bind(this))
+    }
     // set the item at (row, column) as empty
     setEmpty(row, column) {
         this.gameArray[row][column].isEmpty = true;
