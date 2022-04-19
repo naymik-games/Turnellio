@@ -1,18 +1,4 @@
-let game;
-let gameOptions = {
-    gemSize: 50,
-    rotateSpeed: 100,
-    fallSpeed: 100,
-    destroySpeed: 200,
-    items: 4,
-    cols: 8,
-    rows: 12,
-    boardOffset: {
-        x: 100,
-        y: 150
-    },
-    allowBlanks: true
-}
+
 window.onload = function () {
     let gameConfig = {
         type: Phaser.AUTO,
@@ -23,7 +9,7 @@ window.onload = function () {
             width: 900,
             height: 1640
         },
-        scene: playGame
+        scene: [preloadGame, startGame, playGame]
     }
     game = new Phaser.Game(gameConfig);
     window.focus();
@@ -33,19 +19,29 @@ class playGame extends Phaser.Scene {
         super("PlayGame");
     }
     preload() {
-        this.load.spritesheet("gems", "assets/sprites/gems_numbers.png", {
-            frameWidth: 100,
-            frameHeight: 100
-        });
-        this.load.image('square', 'assets/sprites/square.png')
-        this.load.bitmapFont('lato', 'assets/fonts/lato_0.png', 'assets/fonts/lato.xml');
+
     }
     create() {
         this.breakLockFlag = false
+        this.destroyTileFlag = false
+        this.blanksExist = true
+        this.crosses = []
         this.cameras.main.setBackgroundColor(0x000000);
-        this.scoreText = this.add.bitmapText(450, 75, 'lato', '0', 85).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
-        this.score = 0
+        if (load) {
+            this.score = saveData.score
+            this.tempScore = this.score
+        } else {
+            this.score = 0
+            this.tempScore = 0
+        }
+        this.scoreText = this.add.bitmapText(450, 75, 'lato', this.tempScore, 105).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
+
         this.scoreBuffer = 0
+
+        this.coins = gameData.coins
+
+        this.movesText = this.add.bitmapText(850, 75, 'lato', '0', 85).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
+        this.moves = 0
         this.match3 = new Match3({
             rows: gameOptions.rows,
             columns: gameOptions.cols,
@@ -54,13 +50,37 @@ class playGame extends Phaser.Scene {
         });
         //gameOptions.gemSize = (game.config.width - (gameOptions.offsetX * 2)) / gameOptions.cols;
         gameOptions.gemSize = (game.config.width - (gameOptions.boardOffset.x * 2)) / gameOptions.cols
-        this.match3.generateField();
+        this.bg = this.add.image(gameOptions.boardOffset.x - 10, gameOptions.boardOffset.y - 10, 'square').setOrigin(0)
+        this.bg.displayWidth = (gameOptions.cols * gameOptions.gemSize) + 20
+        this.bg.displayHeight = (gameOptions.rows * gameOptions.gemSize) + 20
+        this.bgColor = this.add.image(gameOptions.boardOffset.x, gameOptions.boardOffset.y, 'square').setOrigin(0).setTint(0x000000)
+        this.bgColor.displayWidth = (gameOptions.cols * gameOptions.gemSize)
+        this.bgColor.displayHeight = (gameOptions.rows * gameOptions.gemSize)
+
+
+        if (load) {
+            this.match3.loadGame();
+        } else {
+            this.match3.generateField();
+        }
+
+
+
         this.canPick = true;
         this.drawField();
 
-        this.breakLockIcon = this.add.image(gameOptions.boardOffset.x, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 50, 'square').setOrigin(0).setInteractive()
+        this.breakLockIcon = this.add.image(gameOptions.boardOffset.x, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 50, 'unlocked').setOrigin(0).setInteractive()
         this.breakLockIcon.on('pointerdown', this.breakLockStart, this)
+        this.destroyTileIcon = this.add.image(gameOptions.boardOffset.x + 125, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 50, 'remove').setOrigin(0).setInteractive()
+        this.destroyTileIcon.on('pointerup', this.destroyTileStart, this)
+
+        this.coinIcon = this.add.image(75, 1550, 'gems', 14)
+        this.coinText = this.add.bitmapText(75, 1550, 'lato', this.coins, 45).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
+
+
+        this.showToast('Begin')
         this.input.on("pointerdown", this.gemSelect, this);
+        this.makeMenu()
     }
     update() {
         if (this.scoreBuffer > 0) {
@@ -70,8 +90,8 @@ class playGame extends Phaser.Scene {
 
     }
     incrementScore() {
-        this.score += 1;
-        this.scoreText.setText(this.score);
+        this.tempScore += 1;
+        this.scoreText.setText(this.tempScore);
     }
     breakLockStart() {
 
@@ -103,6 +123,51 @@ class playGame extends Phaser.Scene {
         this.breakLockFlag = false;
         this.breakLockIcon.clearTint()
     }
+    destroyTileStart() {
+
+        this.destroyTileIcon.setTint(0x00ff00)
+        this.destroyTileFlag = true
+        console.log('destroy start')
+
+    }
+    destroyTile(pointer) {
+        let row = Math.floor((pointer.y - gameOptions.boardOffset.y) / gameOptions.gemSize);
+        let col = Math.floor((pointer.x - gameOptions.boardOffset.x) / gameOptions.gemSize);
+        if (this.match3.validPick(row, col) && !this.match3.isBlank(row, col)) {
+
+            let gemsToRemove = [{ row: row, column: col }]
+            this.scoreBuffer += gemsToRemove.length * 10
+            this.score += gemsToRemove.length * 10
+            let destroyed = 0;
+            gemsToRemove.forEach(function (gem) {
+                this.poolArray.push(this.match3.customDataOf(gem.row, gem.column))
+                if (this.match3.isCoin(gem.row, gem.column)) {
+                    console.log('got coin')
+                    this.coins++
+                    this.coinText.setText(this.coins)
+                    this.collectCoin(gem.row, gem.column)
+                }
+                destroyed++;
+                this.tweens.add({
+                    targets: this.match3.customDataOf(gem.row, gem.column),
+                    alpha: 0,
+                    duration: gameOptions.destroySpeed,
+                    callbackScope: this,
+                    onComplete: function (event, sprite) {
+                        destroyed--;
+                        if (destroyed == 0) {
+                            this.match3.setEmpty(row, col)
+                            this.makeGemsFall();
+                        }
+                    }
+                });
+            }.bind(this));
+
+
+        }
+        this.destroyTileFlag = false;
+        this.destroyTileIcon.clearTint()
+    }
     drawField() {
         this.poolArray = [];
         for (let i = 0; i < this.match3.getRows(); i++) {
@@ -116,6 +181,8 @@ class playGame extends Phaser.Scene {
             }
         }
         this.addCoins(2)
+        this.addCross(2)
+        //console.log(this.match3.gameArray)
     }
     addCoins(count) {
         var i = 0
@@ -135,11 +202,34 @@ class playGame extends Phaser.Scene {
             }
         }
     }
+    addCross(count) {
+        var i = 0
+        while (i < count) {
+            var row = Phaser.Math.Between(0, gameOptions.rows - 1)
+            var col = Phaser.Math.Between(0, gameOptions.cols - 1)
+            if (this.match3.extraEmpty(row, col)) {
+                //this.gameArrayExtra[row][col].coin = true;
+                let gemX = gameOptions.boardOffset.x + gameOptions.gemSize * col + gameOptions.gemSize / 2
+                let gemY = gameOptions.boardOffset.y + gameOptions.gemSize * row + gameOptions.gemSize / 2
+                var block = this.add.image(gemX, gemY, 'gems', 16).setAlpha(1);
+                block.displayWidth = gameOptions.gemSize;
+                block.displayHeight = gameOptions.gemSize;
+                block.extraType = 'cross'
+                this.match3.setExtra(row, col, block)
+                i++
+            }
+        }
+    }
     gemSelect(pointer) {
         if (pointer.y < gameOptions.boardOffset.y || pointer.y > gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) { return }
         if (this.breakLockFlag) {
             console.log('break number selection')
             this.breakLock(pointer)
+            return
+        }
+        if (this.destroyTileFlag) {
+            console.log('destroy selection')
+            this.destroyTile(pointer)
             return
         }
         if (this.canPick) {
@@ -173,14 +263,23 @@ class playGame extends Phaser.Scene {
     }
     handleMatches() {
         if (this.match3.matchInBoard()) {
+            this.moves++
+            this.movesText.setText(this.moves)
             let gemsToRemove = this.match3.getMatchList();
             this.scoreBuffer += gemsToRemove.length * 10
+            this.score += gemsToRemove.length * 10
             let destroyed = 0;
             gemsToRemove.forEach(function (gem) {
                 this.poolArray.push(this.match3.customDataOf(gem.row, gem.column))
                 if (this.match3.isCoin(gem.row, gem.column)) {
                     console.log('got coin')
                     this.collectCoin(gem.row, gem.column)
+                    this.coins++
+                    this.coinText.setText(this.coins)
+                }
+                if (this.match3.isCross(gem.row, gem.column)) {
+                    console.log('got cross')
+                    this.collectCross(gem.row, gem.column, this.match3.valueAt(gem.row, gem.column))
                 }
                 destroyed++;
                 this.tweens.add({
@@ -250,35 +349,13 @@ class playGame extends Phaser.Scene {
             });
         }.bind(this))
     }
-    endOfMove() {
-        if (this.match3.matchInBoard()) {
-            this.time.addEvent({
-                delay: 250,
-                callback: this.handleMatches()
-            });
-        }
-        else {
-            if (this.match3.blankOnBottom() && gameOptions.allowBlanks) {
-                this.time.addEvent({
-                    delay: 250,
-                    callback: this.handleBlanks()
-                });
-            } else {
-                this.canPick = true;
-                this.selectedGem = null;
-                if (this.score > 2000) {
-                    gameOptions.allowBlanks = true;
-                    this.match3.blankOn = true;
-                }
-            }
 
-        }
-    }
 
     handleBlanks() {
         if (this.match3.blankOnBottom()) {
             let gemsToRemove = this.match3.getBlankList();
             this.scoreBuffer += gemsToRemove.length * 10
+            this.score += gemsToRemove.length * 10
             let destroyed = 0;
             gemsToRemove.forEach(function (gem) {
                 this.poolArray.push(this.match3.customDataOf(gem.row, gem.column))
@@ -363,9 +440,24 @@ class playGame extends Phaser.Scene {
                     delay: 250,
                     callback: this.handleBlanks()
                 });
+            } else if (this.crosses.length > 0) {
+                this.doCross()
             } else {
+                //console.log(this.crosses)
                 this.canPick = true;
                 this.selectedGem = null;
+                this.crosses = [];
+                this.saveGame()
+                if (this.blanksExist) {
+                    if (!this.match3.doBlanksExist()) {
+                        this.scoreBuffer += 1000
+                        this.score += 1000
+                        this.showToast('Blanks Cleared!')
+                        this.addCross(3)
+                        this.blanksExist = false
+                    }
+
+                }
             }
 
         }
@@ -387,362 +479,143 @@ class playGame extends Phaser.Scene {
             })
         }
     }
-}
-class Match3 {
-
-    // constructor, simply turns obj information into class properties
-    constructor(obj) {
-        if (obj == undefined) {
-            obj = {}
-        }
-        this.rows = (obj.rows != undefined) ? obj.rows : 8;
-        this.columns = (obj.columns != undefined) ? obj.columns : 7;
-        this.items = (obj.items != undefined) ? obj.items : 6;
-        this.blanksOn = (obj.blanksOn != undefined) ? obj.blanksOn : false;
-    }
-
-    // generates the game field
-    generateField() {
-        this.gameArray = [];
-        this.selectedItem = false;
-        for (let i = 0; i < this.rows; i++) {
-            this.gameArray[i] = [];
-            for (let j = 0; j < this.columns; j++) {
-                do {
-                    let randomValue = Math.floor(Math.random() * this.items);
-                    if (gameOptions.allowBlanks) {
-                        if (Math.random() < .15) {
-                            randomValue = 12
-                        }
-                    }
-
-                    this.gameArray[i][j] = {
-                        value: randomValue,
-                        isLocked: false,
-                        isEmpty: false,
-                        row: i,
-                        column: j
-                    }
-                } while (this.isPartOfMatch(i, j));
+    collectCross(row, col, value) {
+        this.crosses.push({ row: row, col: col, value: value })
+        var tween = this.tweens.add({
+            targets: this.match3.getExtra(row, col),
+            scale: 0,
+            angle: 360,
+            x: this.scoreText.x,
+            y: this.scoreText.y,
+            duration: 650,
+            onCompleteScope: this,
+            onComplete: function () {
+                this.match3.removeExtra(row, col)
             }
+        })
+
+    }
+    doCross() {
+        for (let i = 0; i < this.crosses.length; i++) {
+            const element = this.crosses[i];
+            this.match3.setRowColValue(element.row, element.col, element.value)
+
         }
-        gameOptions.allowBlanks = false;
-        this.generateFieldExtra()
+        this.crosses = []
+        this.handleMatches()
     }
-
-    // locks a random Item and returns item coordinates, or false
-    lockRandomItem() {
-        let unlockedItems = [];
-        for (let i = 0; i < this.rows; i++) {
-            for (let j = 0; j < this.columns; j++) {
-                if (!this.isLocked(i, j) && this.valueAt(i, j) != 12) {
-                    unlockedItems.push({
-                        row: i,
-                        column: j
-                    })
-                }
-            }
+    saveGame() {
+        var board = this.match3.getBoard()
+        //console.log(board)
+        saveData.gameArray = board
+        saveData.score = this.score
+        localStorage.setItem('nmLoad', JSON.stringify(saveData));
+        gameData.coins = this.coins
+        localStorage.setItem('nmSave', JSON.stringify(gameData));
+    }
+    showToast(text) {
+        if (this.toastBox) {
+            this.toastBox.destroy(true);
         }
-        if (unlockedItems.length > 0) {
-            let item = unlockedItems[Math.floor(Math.random() * unlockedItems.length)];
-            this.lockAt(item.row, item.column)
-            return item;
-        }
-        return false;
-    }
-
-    // returns a random row number
-    randomRow() {
-        return Math.floor(Math.random() * this.rows);
-    }
-
-    // returns a random column number
-    randomColumn() {
-        return Math.floor(Math.random() * this.columns);
-    }
-
-    // locks the item at row, column
-    lockAt(row, column) {
-        this.gameArray[row][column].isLocked = true;
-    }
-    unlockAt(row, column) {
-        this.gameArray[row][column].isLocked = false;
-    }
-    // returns true if item at row, column is locked
-    isLocked(row, column) {
-        return this.gameArray[row][column].isLocked;
-    }
-
-    // returns true if there is a match in the board
-    matchInBoard() {
-        for (let i = 0; i < this.rows; i++) {
-            for (let j = 0; j < this.columns; j++) {
-                if (this.isPartOfMatch(i, j)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    blankOnBottom() {
-
-        for (let j = 0; j < this.columns; j++) {
-            if (this.valueAt(this.rows - 1, j) == 12) {
-                return true
-            }
-        }
-        return false;
-    }
-    // returns true if the item at (row, column) is part of a match
-    isPartOfMatch(row, column) {
-        return this.isPartOfHorizontalMatch(row, column) || this.isPartOfVerticalMatch(row, column);
-    }
-
-    // returns true if the item at (row, column) is part of an horizontal match
-    isPartOfHorizontalMatch(row, column) {
-        return this.valueAt(row, column) === this.valueAt(row, column - 1) && this.valueAt(row, column) === this.valueAt(row, column - 2) ||
-            this.valueAt(row, column) === this.valueAt(row, column + 1) && this.valueAt(row, column) === this.valueAt(row, column + 2) ||
-            this.valueAt(row, column) === this.valueAt(row, column - 1) && this.valueAt(row, column) === this.valueAt(row, column + 1);
-    }
-
-    // returns true if the item at (row, column) is part of an horizontal match
-    isPartOfVerticalMatch(row, column) {
-        return this.valueAt(row, column) === this.valueAt(row - 1, column) && this.valueAt(row, column) === this.valueAt(row - 2, column) ||
-            this.valueAt(row, column) === this.valueAt(row + 1, column) && this.valueAt(row, column) === this.valueAt(row + 2, column) ||
-            this.valueAt(row, column) === this.valueAt(row - 1, column) && this.valueAt(row, column) === this.valueAt(row + 1, column)
-    }
-
-    // increments the value of the item
-    incValueAt(row, column) {
-        this.gameArray[row][column].value = (this.gameArray[row][column].value + 1) % this.items
-    }
-
-    // returns the value of the item at (row, column), or false if it's not a valid pick
-    valueAt(row, column) {
-        if (!this.validPick(row, column)) {
-            return false;
-        }
-        return this.gameArray[row][column].value;
-    }
-
-    // returns true if the item at (row, column) is a valid pick
-    validPick(row, column) {
-        return row >= 0 && row < this.rows && column >= 0 && column < this.columns && this.gameArray[row] != undefined && this.gameArray[row][column] != undefined;
-    }
-
-    // returns the number of board rows
-    getRows() {
-        return this.rows;
-    }
-
-    // returns the number of board columns
-    getColumns() {
-        return this.columns;
-    }
-
-    // sets a custom data on the item at (row, column)
-    setCustomData(row, column, customData) {
-        this.gameArray[row][column].customData = customData;
-    }
-
-    // returns the custom data of the item at (row, column)
-    customDataOf(row, column) {
-        return this.gameArray[row][column].customData;
-    }
-
-    // returns the selected item
-    getSelectedItem() {
-        return this.selectedItem;
-    }
-
-    // set the selected item as a {row, column} object
-    setSelectedItem(row, column) {
-        this.selectedItem = {
-            row: row,
-            column: column
-        }
-    }
-
-    // deleselects any item
-    deleselectItem() {
-        this.selectedItem = false;
-    }
-
-    // checks if the item at (row, column) is the same as the item at (row2, column2)
-    areTheSame(row, column, row2, column2) {
-        return row == row2 && column == column2;
-    }
-
-    // returns true if two items at (row, column) and (row2, column2) are next to each other horizontally or vertically
-    areNext(row, column, row2, column2) {
-        return Math.abs(row - row2) + Math.abs(column - column2) == 1;
-    }
-
-    // swap the items at (row, column) and (row2, column2) and returns an object with movement information
-    swapItems(row, column, row2, column2) {
-        let tempObject = Object.assign(this.gameArray[row][column]);
-        this.gameArray[row][column] = Object.assign(this.gameArray[row2][column2]);
-        this.gameArray[row2][column2] = Object.assign(tempObject);
-        return [{
-            row: row,
-            column: column,
-            deltaRow: row - row2,
-            deltaColumn: column - column2
-        },
-        {
-            row: row2,
-            column: column2,
-            deltaRow: row2 - row,
-            deltaColumn: column2 - column
-        }]
-    }
-
-    // return the items part of a match in the board as an array of {row, column} object
-    getMatchList() {
-        let matches = [];
-        for (let i = 0; i < this.rows; i++) {
-            for (let j = 0; j < this.columns; j++) {
-                if (this.isPartOfMatch(i, j)) {
-                    matches.push({
-                        row: i,
-                        column: j
-                    });
-                }
-            }
-        }
-        return matches;
-    }
-    getBlankList() {
-        let matches = []
-        for (let j = 0; j < this.columns; j++) {
-            if (this.valueAt(this.rows - 1, j) == 12) {
-                matches.push({
-                    row: this.rows - 1,
-                    column: j
+        var toastBox = this.add.container().setDepth(2);
+        var backToast = this.add.image(0, 0, 'square').setDepth(2).setTint(0x000000);
+        backToast.setAlpha(.9);
+        backToast.displayWidth = 700;
+        backToast.displayHeight = 90;
+        toastBox.add(backToast);
+        toastBox.setPosition(game.config.width / 2, -100);
+        var toastText = this.add.bitmapText(20, 0, 'lato', text, 70,).setTint(0xfafafa).setOrigin(.5, .5).setDepth(2);
+        //toastText.setMaxWidth(game.config.width - 10);
+        toastBox.add(toastText);
+        this.toastBox = toastBox;
+        this.tweens.add({
+            targets: this.toastBox,
+            //alpha: .5,
+            y: 95,
+            duration: 500,
+            //  yoyo: true,
+            callbackScope: this,
+            onComplete: function () {
+                this.time.addEvent({
+                    delay: 2500,
+                    callback: this.hideToast,
+                    callbackScope: this
                 });
             }
-        }
-        return matches
+        });
+        //this.time.addEvent({delay: 2000, callback: this.hideToast, callbackScope: this});
     }
-    // removes all items forming a match
-    removeMatches() {
-        let matches = this.getMatchList();
-        matches.forEach(function (item) {
-            this.setEmpty(item.row, item.column)
-        }.bind(this))
-    }
-    removeBlanks() {
-        let matches = this.getBlankList();
-        matches.forEach(function (item) {
-            this.setEmpty(item.row, item.column)
-        }.bind(this))
-    }
-    // set the item at (row, column) as empty
-    setEmpty(row, column) {
-        this.gameArray[row][column].isEmpty = true;
-    }
-
-    // returns true if the item at (row, column) is empty
-    isEmpty(row, column) {
-        return this.gameArray[row][column].isEmpty;
-    }
-
-    // returns the amount of empty spaces below the item at (row, column)
-    emptySpacesBelow(row, column) {
-        let result = 0;
-        if (row != this.getRows()) {
-            for (let i = row + 1; i < this.getRows(); i++) {
-                if (this.isEmpty(i, column)) {
-                    result++;
-                }
+    hideToast() {
+        this.tweens.add({
+            targets: this.toastBox,
+            //alpha: .5,
+            y: -95,
+            duration: 500,
+            //  yoyo: true,
+            callbackScope: this,
+            onComplete: function () {
+                this.toastBox.destroy(true);
             }
-        }
-        return result;
-    }
+        });
 
-    // arranges the board after a match, making items fall down. Returns an object with movement information
-    arrangeBoardAfterMatch() {
-        let result = []
-        for (let i = this.getRows() - 2; i >= 0; i--) {
-            for (let j = 0; j < this.getColumns(); j++) {
-                let emptySpaces = this.emptySpacesBelow(i, j);
-                if (!this.isEmpty(i, j) && emptySpaces > 0) {
-                    this.swapItems(i, j, i + emptySpaces, j)
-                    result.push({
-                        row: i + emptySpaces,
-                        column: j,
-                        deltaRow: emptySpaces,
-                        deltaColumn: 0
-                    });
-                }
-            }
-        }
-        return result;
     }
+    toggleMenu() {
 
-    // replenished the board and returns an object with movement information
-    replenishBoard() {
-        let result = [];
-        for (let i = 0; i < this.getColumns(); i++) {
-            if (this.isEmpty(0, i)) {
-                let emptySpaces = this.emptySpacesBelow(0, i) + 1;
-                for (let j = 0; j < emptySpaces; j++) {
-                    let randomValue = Math.floor(Math.random() * this.items);
-                    if (gameOptions.allowBlanks) {
-                        if (Math.random() < .15) {
-                            randomValue = 12
-                        }
-                    }
-                    result.push({
-                        row: j,
-                        column: i,
-                        deltaRow: emptySpaces,
-                        deltaColumn: 0
-                    });
-                    this.gameArray[j][i].value = randomValue;
-                    this.gameArray[j][i].isEmpty = false;
-                    this.gameArray[j][i].isLocked = false;
-                }
-            }
-        }
-        return result;
-    }
-    ////extra stuff
-    //make array
-    generateFieldExtra() {
-        this.gameArrayExtra = [];
+        if (this.menuGroup.y == 0) {
+            var menuTween = this.tweens.add({
+                targets: this.menuGroup,
+                y: -270,
+                duration: 500,
+                ease: 'Bounce'
+            })
 
-        for (let i = 0; i < this.rows; i++) {
-            var gae = [];
-            for (let j = 0; j < this.columns; j++) {
-                gae.push(null)
+        }
+        if (this.menuGroup.y == -270) {
+            var menuTween = this.tweens.add({
+                targets: this.menuGroup,
+                y: 0,
+                duration: 500,
+                ease: 'Bounce'
+            })
+        }
+    }
+    makeMenu() {
+        ////////menu
+        this.menuGroup = this.add.container().setDepth(3);
+        var menuBG = this.add.image(game.config.width / 2, game.config.height - 85, 'square').setOrigin(.5, 0).setTint(0x333333).setAlpha(.8)
+        menuBG.displayWidth = 300;
+        menuBG.displayHeight = 600
+        this.menuGroup.add(menuBG)
+        var menuButton = this.add.image(game.config.width / 2, game.config.height - 40, "menu").setInteractive().setDepth(3);
+        menuButton.on('pointerdown', this.toggleMenu, this)
+        menuButton.setOrigin(0.5);
+        this.menuGroup.add(menuButton);
+        var homeButton = this.add.bitmapText(game.config.width / 2, game.config.height + 50, 'lato', 'HOME', 50).setOrigin(.5).setTint(0xffffff).setAlpha(1).setInteractive();
+        homeButton.on('pointerdown', function () {
+            this.scene.stop()
+            this.scene.start('startGame')
+        }, this)
+        this.menuGroup.add(homeButton);
+        var wordButton = this.add.bitmapText(game.config.width / 2, game.config.height + 140, 'lato', 'WORDS', 50).setOrigin(.5).setTint(0xffffff).setAlpha(1).setInteractive();
+        wordButton.on('pointerdown', function () {
+            var data = {
+                yesWords: this.foundWords,
+                noWords: this.notWords
             }
-            this.gameArrayExtra.push(gae)
-        }
-        console.log(this.gameArrayExtra)
-    }
-    extraEmpty(row, col) {
-        if (this.gameArrayExtra[row][col] == null) {
-            return true
-        }
-        return false
-    }
-    setExtra(row, col, block) {
-        this.gameArrayExtra[row][col] = block
-    }
-    getExtra(row, col) {
-        return this.gameArrayExtra[row][col]
-    }
-    removeExtra(row, col) {
-        this.gameArrayExtra[row][col].destroy()
-        this.gameArrayExtra[row][col] = null;
-    }
-    isCoin(row, col) {
-        if (this.gameArrayExtra[row][col] != null) {
-            if (this.gameArrayExtra[row][col].extraType == 'coin') {
-                return true;
-            }
-        }
-    }
+            this.scene.pause()
+            this.scene.launch('wordsPlayed', data)
+        }, this)
+        this.menuGroup.add(wordButton);
+        var helpButton = this.add.bitmapText(game.config.width / 2, game.config.height + 230, 'lato', 'RESTART', 50).setOrigin(.5).setTint(0xffffff).setAlpha(1).setInteractive();
+        helpButton.on('pointerdown', function () {
 
+
+            this.scene.start('PlayGame')
+        }, this)
+        this.menuGroup.add(helpButton);
+        //var thankYou = game.add.button(game.config.width / 2, game.config.height + 130, "thankyou", function(){});
+        // thankYou.setOrigin(0.5);
+        // menuGroup.add(thankYou);    
+        ////////end menu
+    }
 }
