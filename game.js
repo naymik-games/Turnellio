@@ -37,24 +37,29 @@ class playGame extends Phaser.Scene {
             frameWidth: 100,
             frameHeight: 100
         });
+        this.load.image('square', 'assets/sprites/square.png')
         this.load.bitmapFont('lato', 'assets/fonts/lato_0.png', 'assets/fonts/lato.xml');
     }
     create() {
-        this.cameras.main.setBackgroundColor(0x333333);
-        this.scoreText = this.add.bitmapText(450, 75, 'lato', '0', 65).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
+        this.breakLockFlag = false
+        this.cameras.main.setBackgroundColor(0x000000);
+        this.scoreText = this.add.bitmapText(450, 75, 'lato', '0', 85).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
         this.score = 0
         this.scoreBuffer = 0
         this.match3 = new Match3({
             rows: gameOptions.rows,
             columns: gameOptions.cols,
             items: gameOptions.items,
-            blanksOn: gameOptions.allowBlanks
+
         });
         //gameOptions.gemSize = (game.config.width - (gameOptions.offsetX * 2)) / gameOptions.cols;
         gameOptions.gemSize = (game.config.width - (gameOptions.boardOffset.x * 2)) / gameOptions.cols
         this.match3.generateField();
         this.canPick = true;
         this.drawField();
+
+        this.breakLockIcon = this.add.image(gameOptions.boardOffset.x, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 50, 'square').setOrigin(0).setInteractive()
+        this.breakLockIcon.on('pointerdown', this.breakLockStart, this)
         this.input.on("pointerdown", this.gemSelect, this);
     }
     update() {
@@ -68,6 +73,36 @@ class playGame extends Phaser.Scene {
         this.score += 1;
         this.scoreText.setText(this.score);
     }
+    breakLockStart() {
+
+        this.breakLockIcon.setTint(0x00ff00)
+        this.breakLockFlag = true
+        console.log('break start')
+
+    }
+    breakLock(pointer) {
+        let row = Math.floor((pointer.y - gameOptions.boardOffset.y) / gameOptions.gemSize);
+        let col = Math.floor((pointer.x - gameOptions.boardOffset.x) / gameOptions.gemSize);
+        if (this.match3.validPick(row, col) && this.match3.isLocked(row, col)) {
+            console.log('break continue')
+            this.match3.unlockAt(row, col)
+            var tween = this.tweens.add({
+                targets: this.match3.customDataOf(row, col),
+                displayWidth: this.match3.customDataOf(row, col).displayWidth + 35,
+                displayHeight: this.match3.customDataOf(row, col).displayHeight + 35,
+                yoyo: true,
+                duration: 200,
+                onYoyoScope: this,
+                onYoyo: function () {
+                    this.match3.customDataOf(row, col).setFrame(this.match3.valueAt(row, col));
+                }
+            })
+
+
+        }
+        this.breakLockFlag = false;
+        this.breakLockIcon.clearTint()
+    }
     drawField() {
         this.poolArray = [];
         for (let i = 0; i < this.match3.getRows(); i++) {
@@ -80,13 +115,38 @@ class playGame extends Phaser.Scene {
                 this.match3.setCustomData(i, j, gem);
             }
         }
+        this.addCoins(2)
+    }
+    addCoins(count) {
+        var i = 0
+        while (i < count) {
+            var row = Phaser.Math.Between(0, gameOptions.rows - 1)
+            var col = Phaser.Math.Between(0, gameOptions.cols - 1)
+            if (this.match3.extraEmpty(row, col)) {
+                //this.gameArrayExtra[row][col].coin = true;
+                let gemX = gameOptions.boardOffset.x + gameOptions.gemSize * col + gameOptions.gemSize / 2
+                let gemY = gameOptions.boardOffset.y + gameOptions.gemSize * row + gameOptions.gemSize / 2
+                var block = this.add.image(gemX, gemY, 'gems', 14).setAlpha(1);
+                block.displayWidth = gameOptions.gemSize;
+                block.displayHeight = gameOptions.gemSize;
+                block.extraType = 'coin'
+                this.match3.setExtra(row, col, block)
+                i++
+            }
+        }
     }
     gemSelect(pointer) {
+        if (pointer.y < gameOptions.boardOffset.y || pointer.y > gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) { return }
+        if (this.breakLockFlag) {
+            console.log('break number selection')
+            this.breakLock(pointer)
+            return
+        }
         if (this.canPick) {
 
             let row = Math.floor((pointer.y - gameOptions.boardOffset.y) / gameOptions.gemSize);
             let col = Math.floor((pointer.x - gameOptions.boardOffset.x) / gameOptions.gemSize);
-            console.log(this.match3.valueAt(row, col))
+            //console.log(this.match3.valueAt(row, col))
             if (this.match3.valueAt(row, col) == 12) {
                 return
             }
@@ -118,6 +178,10 @@ class playGame extends Phaser.Scene {
             let destroyed = 0;
             gemsToRemove.forEach(function (gem) {
                 this.poolArray.push(this.match3.customDataOf(gem.row, gem.column))
+                if (this.match3.isCoin(gem.row, gem.column)) {
+                    console.log('got coin')
+                    this.collectCoin(gem.row, gem.column)
+                }
                 destroyed++;
                 this.tweens.add({
                     targets: this.match3.customDataOf(gem.row, gem.column),
@@ -306,6 +370,23 @@ class playGame extends Phaser.Scene {
 
         }
     }
+    collectCoin(row, col) {
+        if (this.match3.isCoin(row, col)) {
+            //this.addCoinCount(1)
+            var tween = this.tweens.add({
+                targets: this.match3.getExtra(row, col),
+                scale: 0,
+                angle: 360,
+                x: this.scoreText.x,
+                y: this.scoreText.y,
+                duration: 650,
+                onCompleteScope: this,
+                onComplete: function () {
+                    this.match3.removeExtra(row, col)
+                }
+            })
+        }
+    }
 }
 class Match3 {
 
@@ -329,7 +410,7 @@ class Match3 {
             for (let j = 0; j < this.columns; j++) {
                 do {
                     let randomValue = Math.floor(Math.random() * this.items);
-                    if (this.blanksOn) {
+                    if (gameOptions.allowBlanks) {
                         if (Math.random() < .15) {
                             randomValue = 12
                         }
@@ -345,6 +426,8 @@ class Match3 {
                 } while (this.isPartOfMatch(i, j));
             }
         }
+        gameOptions.allowBlanks = false;
+        this.generateFieldExtra()
     }
 
     // locks a random Item and returns item coordinates, or false
@@ -382,7 +465,9 @@ class Match3 {
     lockAt(row, column) {
         this.gameArray[row][column].isLocked = true;
     }
-
+    unlockAt(row, column) {
+        this.gameArray[row][column].isLocked = false;
+    }
     // returns true if item at row, column is locked
     isLocked(row, column) {
         return this.gameArray[row][column].isLocked;
@@ -603,11 +688,11 @@ class Match3 {
                 let emptySpaces = this.emptySpacesBelow(0, i) + 1;
                 for (let j = 0; j < emptySpaces; j++) {
                     let randomValue = Math.floor(Math.random() * this.items);
-                    /* if (this.blanksOn) {
+                    if (gameOptions.allowBlanks) {
                         if (Math.random() < .15) {
                             randomValue = 12
                         }
-                    } */
+                    }
                     result.push({
                         row: j,
                         column: i,
@@ -622,4 +707,42 @@ class Match3 {
         }
         return result;
     }
+    ////extra stuff
+    //make array
+    generateFieldExtra() {
+        this.gameArrayExtra = [];
+
+        for (let i = 0; i < this.rows; i++) {
+            var gae = [];
+            for (let j = 0; j < this.columns; j++) {
+                gae.push(null)
+            }
+            this.gameArrayExtra.push(gae)
+        }
+        console.log(this.gameArrayExtra)
+    }
+    extraEmpty(row, col) {
+        if (this.gameArrayExtra[row][col] == null) {
+            return true
+        }
+        return false
+    }
+    setExtra(row, col, block) {
+        this.gameArrayExtra[row][col] = block
+    }
+    getExtra(row, col) {
+        return this.gameArrayExtra[row][col]
+    }
+    removeExtra(row, col) {
+        this.gameArrayExtra[row][col].destroy()
+        this.gameArrayExtra[row][col] = null;
+    }
+    isCoin(row, col) {
+        if (this.gameArrayExtra[row][col] != null) {
+            if (this.gameArrayExtra[row][col].extraType == 'coin') {
+                return true;
+            }
+        }
+    }
+
 }
