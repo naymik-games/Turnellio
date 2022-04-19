@@ -23,7 +23,7 @@ class Match3 {
       this.gameArray[i] = [];
       for (let j = 0; j < this.columns; j++) {
         do {
-          let randomValue = Math.floor(Math.random() * this.items);
+          let randomValue = Math.floor(Math.random() * gameOptions.items);
 
 
           this.gameArray[i][j] = {
@@ -42,14 +42,17 @@ class Match3 {
   }
   addBlanks(num) {
     var i = 0
+    var blanks = []
     while (i < num) {
       var row = Phaser.Math.Between(0, this.rows - 1)
       var col = Phaser.Math.Between(0, this.columns - 1)
       if (this.valueAt(row, col) < 12) {
         this.setValueAt(row, col, 12)
+        blanks.push({ row: row, col: col })
         i++
       }
     }
+    return blanks
   }
   getBoard() {
     var gameSave = [];
@@ -155,7 +158,7 @@ class Match3 {
 
   // increments the value of the item
   incValueAt(row, column) {
-    this.gameArray[row][column].value = (this.gameArray[row][column].value + 1) % this.items
+    this.gameArray[row][column].value = (this.gameArray[row][column].value + 1) % gameOptions.items
   }
   setValueAt(row, column, value) {
     this.gameArray[row][column].value = value
@@ -346,7 +349,7 @@ class Match3 {
       if (this.isEmpty(0, i)) {
         let emptySpaces = this.emptySpacesBelow(0, i) + 1;
         for (let j = 0; j < emptySpaces; j++) {
-          let randomValue = Math.floor(Math.random() * this.items);
+          let randomValue = Math.floor(Math.random() * gameOptions.items);
           if (gameOptions.allowBlanks) {
             if (Math.random() < .15) {
               randomValue = 12
