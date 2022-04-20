@@ -56,9 +56,9 @@ class playGame extends Phaser.Scene {
         });
         //gameOptions.gemSize = (game.config.width - (gameOptions.offsetX * 2)) / gameOptions.cols;
         gameOptions.gemSize = (game.config.width - (gameOptions.boardOffset.x * 2)) / gameOptions.cols
-        this.bg = this.add.image(gameOptions.boardOffset.x - 10, gameOptions.boardOffset.y - 10, 'square').setOrigin(0)
-        this.bg.displayWidth = (gameOptions.cols * gameOptions.gemSize) + 20
-        this.bg.displayHeight = (gameOptions.rows * gameOptions.gemSize) + 20
+        this.bgBorder = this.add.image(gameOptions.boardOffset.x - 10, gameOptions.boardOffset.y - 10, 'square').setOrigin(0)
+        this.bgBorder.displayWidth = (gameOptions.cols * gameOptions.gemSize) + 20
+        this.bgBorder.displayHeight = (gameOptions.rows * gameOptions.gemSize) + 20
         this.bgColor = this.add.image(gameOptions.boardOffset.x, gameOptions.boardOffset.y, 'square').setOrigin(0).setTint(0x000000)
         this.bgColor.displayWidth = (gameOptions.cols * gameOptions.gemSize)
         this.bgColor.displayHeight = (gameOptions.rows * gameOptions.gemSize)
@@ -93,10 +93,17 @@ class playGame extends Phaser.Scene {
             this.incrementScore();
             this.scoreBuffer--;
         }
-
+        if (this.scoreBuffer < 0) {
+            this.decrementScore();
+            this.scoreBuffer++;
+        }
     }
     incrementScore() {
         this.tempScore += 1;
+        this.scoreText.setText(this.tempScore);
+    }
+    decrementScore() {
+        this.tempScore -= 1;
         this.scoreText.setText(this.tempScore);
     }
     levelCheck() {
@@ -105,22 +112,45 @@ class playGame extends Phaser.Scene {
         if (normalizedScore > (1000 * this.level)) {
             this.level++
             this.levelText.setText(this.level)
-            if (this.level == 5) {
-                var blanks = this.match3.addBlanks(5)
+            this.showToast('Level Up!')
+            if (this.level == 3) {
+                var blanks = this.match3.addBlanks(this.getRandomNumberBetween(2, 5))
                 this.drawBlanks(blanks)
+            }
+            if (this.level == 4) {
+                this.addClosed(5)
+
+            }
+            if (this.level == 5) {
+                var blanks = this.match3.addBlanks(8)
+                this.drawBlanks(blanks)
+
+            }
+
+
+            if (this.level == 7) {
+                var blanks = this.match3.addBlanks(this.getRandomNumberBetween(5, 12))
+                this.drawBlanks(blanks)
+
             }
             if (this.level == 10) {
                 gameOptions.items = 5;
             }
-
+            if (this.level == 12) {
+                gameOptions.items = 6;
+            }
         }
-        if (this.getRandomNumberBetween(1, 100) < 15) {
+        if (this.getRandomNumberBetween(1, 100) < 12) {
             this.addCoins(this.getRandomNumberBetween(1, 5))
+        }
+        if (this.getRandomNumberBetween(1, 100) < 10) {
+            this.addCross(this.getRandomNumberBetween(0, 3))
         }
     }
     breakLockStart() {
 
         this.breakLockIcon.setTint(0x00ff00)
+        this.bgBorder.setTint(0x00ff00)
         this.breakLockFlag = true
         console.log('break start')
 
@@ -147,10 +177,12 @@ class playGame extends Phaser.Scene {
         }
         this.breakLockFlag = false;
         this.breakLockIcon.clearTint()
+        this.bgBorder.clearTint()
     }
     destroyTileStart() {
 
         this.destroyTileIcon.setTint(0x00ff00)
+        this.bgBorder.setTint(0x00ff00)
         this.destroyTileFlag = true
         console.log('destroy start')
 
@@ -192,6 +224,7 @@ class playGame extends Phaser.Scene {
         }
         this.destroyTileFlag = false;
         this.destroyTileIcon.clearTint()
+        this.bgBorder.clearTint()
     }
     drawField() {
         this.poolArray = [];
@@ -207,12 +240,14 @@ class playGame extends Phaser.Scene {
         }
         this.addCoins(2)
         this.addCross(2)
+
         //console.log(this.match3.gameArray)
     }
     drawBlanks(blanks) {
         for (var i = 0; i < blanks.length; i++) {
             this.match3.setCustomDataFrame(blanks[i].row, blanks[i].col, 12)
         }
+        this.blanksExist = true
     }
     addCoins(count) {
         var i = 0
@@ -256,6 +291,24 @@ class playGame extends Phaser.Scene {
             }
         }
     }
+    addClosed(count) {
+        var i = 0
+        while (i < count) {
+            var row = Phaser.Math.Between(0, gameOptions.rows - 1)
+            var col = Phaser.Math.Between(0, gameOptions.cols - 1)
+            if (this.match3.extraEmpty(row, col)) {
+                //this.gameArrayExtra[row][col].coin = true;
+                let gemX = gameOptions.boardOffset.x + gameOptions.gemSize * col + gameOptions.gemSize / 2
+                let gemY = gameOptions.boardOffset.y + gameOptions.gemSize * row + gameOptions.gemSize / 2
+                var block = this.add.image(gemX, gemY, 'gems', 17).setAlpha(1);
+                block.displayWidth = gameOptions.gemSize;
+                block.displayHeight = gameOptions.gemSize;
+                block.extraType = 'closed'
+                this.match3.setExtra(row, col, block)
+                i++
+            }
+        }
+    }
     gemSelect(pointer) {
         if (pointer.y < gameOptions.boardOffset.y || pointer.y > gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) { return }
         if (this.breakLockFlag) {
@@ -277,7 +330,7 @@ class playGame extends Phaser.Scene {
                 return
             }
             this.canPick = false;
-            if (this.match3.validPick(row, col) && !this.match3.isLocked(row, col)) {
+            if (this.match3.validPick(row, col) && !this.match3.isLocked(row, col) && this.match3.isOpen(row, col)) {
 
                 this.tweens.add({
                     targets: this.match3.customDataOf(row, col),
@@ -335,6 +388,8 @@ class playGame extends Phaser.Scene {
         else {
             for (let i = 0; i < 5; i++) {
                 let locked = this.match3.lockRandomItem();
+                this.scoreBuffer -= 100
+                this.score -= 100
                 if (locked) {
                     this.match3.customDataOf(locked.row, locked.column).setFrame(6 + this.match3.valueAt(locked.row, locked.column));
                 }

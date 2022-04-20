@@ -44,7 +44,7 @@ class Match3 {
     var i = 0
     var blanks = []
     while (i < num) {
-      var row = Phaser.Math.Between(0, this.rows - 1)
+      var row = Phaser.Math.Between(0, this.rows - 2)
       var col = Phaser.Math.Between(0, this.columns - 1)
       if (this.valueAt(row, col) < 12) {
         this.setValueAt(row, col, 12)
@@ -381,7 +381,7 @@ class Match3 {
       }
       this.gameArrayExtra.push(gae)
     }
-    console.log(this.gameArrayExtra)
+    //console.log(this.gameArrayExtra)
   }
   extraEmpty(row, col) {
     if (this.gameArrayExtra[row][col] == null && this.valueAt(row, col) < 12) {
@@ -401,6 +401,15 @@ class Match3 {
       this.gameArrayExtra[row][col] = null;
     }
 
+  }
+  isOpen(row, col) {
+
+    if (this.gameArrayExtra[row][col] != null) {
+      if (this.gameArrayExtra[row][col].extraType == 'closed') {
+        return false;
+      }
+    }
+    return true
   }
   isCoin(row, col) {
     if (this.gameArrayExtra[row][col] != null) {
