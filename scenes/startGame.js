@@ -18,18 +18,18 @@ class startGame extends Phaser.Scene {
       localStorage.setItem('nmLoad', JSON.stringify(defaultSave));
       saveData = defaultSave;
     }
-    this.cameras.main.setBackgroundColor(0xf7eac6);
+    this.cameras.main.setBackgroundColor(0x000000);
 
     var title = this.add.bitmapText(game.config.width / 2, 100, 'lato', 'NumberMatch', 150).setOrigin(.5).setTint(0xc76210);
 
-    var startTime = this.add.bitmapText(game.config.width / 2 - 50, 275, 'lato', 'Play', 50).setOrigin(0, .5).setTint(0x000000);
+    var startTime = this.add.bitmapText(game.config.width / 2 - 75, 275, 'lato', 'New Game >', 70).setOrigin(0, .5).setTint(0xffffff);
     startTime.setInteractive();
     startTime.on('pointerdown', this.clickHandler, this);
 
-    var laodTime = this.add.bitmapText(game.config.width / 2 - 50, 475, 'lato', 'Load', 50).setOrigin(0, .5).setTint(0x000000);
+    var laodTime = this.add.bitmapText(game.config.width / 2 - 75, 575, 'lato', 'Load Game >', 70).setOrigin(0, .5).setTint(0xffffff);
     laodTime.setInteractive();
     laodTime.on('pointerdown', this.clickHandler2, this);
-
+    var laodTime = this.add.bitmapText(game.config.width / 2 - 75, 675, 'lato', saveData.score + ' Points on Level ' + saveData.level, 50).setOrigin(0, .5).setTint(0xffffff);
   }
   clickHandler() {
     load = false;

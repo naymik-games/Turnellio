@@ -119,7 +119,7 @@ class playGame extends Phaser.Scene {
         var crossChance = 10
         var crossMin = 0
 
-        console.log(this.normalizedScore)
+        //console.log(this.normalizedScore)
 
         if (this.normalizedScore > (2000 * this.level)) {
             //this.levelProgress.displayHeight = 0
@@ -185,14 +185,14 @@ class playGame extends Phaser.Scene {
         this.breakLockIcon.setTint(0x00ff00)
         this.bgBorder.setTint(0x00ff00)
         this.breakLockFlag = true
-        console.log('break start')
+        //console.log('break start')
 
     }
     breakLock(pointer) {
         let row = Math.floor((pointer.y - gameOptions.boardOffset.y) / gameOptions.gemSize);
         let col = Math.floor((pointer.x - gameOptions.boardOffset.x) / gameOptions.gemSize);
         if (this.match3.validPick(row, col) && this.match3.isLocked(row, col)) {
-            console.log('break continue')
+            // console.log('break continue')
             this.match3.unlockAt(row, col)
             var tween = this.tweens.add({
                 targets: this.match3.customDataOf(row, col),
@@ -217,7 +217,7 @@ class playGame extends Phaser.Scene {
         this.destroyTileIcon.setTint(0x00ff00)
         this.bgBorder.setTint(0x00ff00)
         this.destroyTileFlag = true
-        console.log('destroy start')
+        //console.log('destroy start')
 
     }
     destroyTile(pointer) {
@@ -232,7 +232,7 @@ class playGame extends Phaser.Scene {
             gemsToRemove.forEach(function (gem) {
                 this.poolArray.push(this.match3.customDataOf(gem.row, gem.column))
                 if (this.match3.isCoin(gem.row, gem.column)) {
-                    console.log('got coin')
+                    // console.log('got coin')
                     this.coins++
                     this.coinText.setText(this.coins)
                     this.collectCoin(gem.row, gem.column)
@@ -390,12 +390,12 @@ class playGame extends Phaser.Scene {
     gemSelect(pointer) {
         if (pointer.y < gameOptions.boardOffset.y || pointer.y > gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) { return }
         if (this.breakLockFlag) {
-            console.log('break number selection')
+            // console.log('break number selection')
             this.breakLock(pointer)
             return
         }
         if (this.destroyTileFlag) {
-            console.log('destroy selection')
+            //console.log('destroy selection')
             this.destroyTile(pointer)
             return
         }
@@ -439,13 +439,13 @@ class playGame extends Phaser.Scene {
             gemsToRemove.forEach(function (gem) {
                 this.poolArray.push(this.match3.customDataOf(gem.row, gem.column))
                 if (this.match3.isCoin(gem.row, gem.column)) {
-                    console.log('got coin')
+                    //console.log('got coin')
                     this.collectCoin(gem.row, gem.column)
                     this.coins++
                     this.coinText.setText(this.coins)
                 }
                 if (this.match3.isCross(gem.row, gem.column)) {
-                    console.log('got cross')
+                    //console.log('got cross')
                     this.collectCross(gem.row, gem.column, this.match3.valueAt(gem.row, gem.column))
                 }
                 destroyed++;
@@ -677,7 +677,7 @@ class playGame extends Phaser.Scene {
     saveGame() {
         var board = this.match3.getBoard()
         var boardExtra = this.match3.getBoardExtra()
-        console.log(boardExtra)
+        //console.log(boardExtra)
         saveData.gameArray = board
         saveData.gameArrayExtra = boardExtra
         saveData.score = this.score
@@ -692,12 +692,12 @@ class playGame extends Phaser.Scene {
             this.toastBox.destroy(true);
         }
         var toastBox = this.add.container().setDepth(2);
-        var backToast = this.add.image(0, 0, 'square').setDepth(2).setTint(0x000000);
-        backToast.setAlpha(.9);
+        var backToast = this.add.image(0, 0, 'square').setDepth(2).setTint(0x333333);
+        backToast.setAlpha(1);
         backToast.displayWidth = 700;
         backToast.displayHeight = 90;
         toastBox.add(backToast);
-        toastBox.setPosition(game.config.width / 2, -100);
+        toastBox.setPosition(game.config.width + 800, 820);
         var toastText = this.add.bitmapText(20, 0, 'lato', text, 70,).setTint(0xfafafa).setOrigin(.5, .5).setDepth(2);
         //toastText.setMaxWidth(game.config.width - 10);
         toastBox.add(toastText);
@@ -705,7 +705,7 @@ class playGame extends Phaser.Scene {
         this.tweens.add({
             targets: this.toastBox,
             //alpha: .5,
-            y: 95,
+            x: 450,
             duration: 500,
             //  yoyo: true,
             callbackScope: this,
@@ -723,7 +723,7 @@ class playGame extends Phaser.Scene {
         this.tweens.add({
             targets: this.toastBox,
             //alpha: .5,
-            y: -95,
+            x: -800,
             duration: 500,
             //  yoyo: true,
             callbackScope: this,
