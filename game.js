@@ -46,7 +46,7 @@ class playGame extends Phaser.Scene {
         this.coins = gameData.coins
 
         this.matchesText = this.add.bitmapText(875, 75, 'lato', this.matches, 75).setOrigin(1, .5).setTint(0xf5f5f5).setAlpha(1);
-        this.levelText = this.add.bitmapText(25, 75, 'lato', this.level, 75).setOrigin(0, .5).setTint(0xff0000).setAlpha(1);
+        this.levelText = this.add.bitmapText(25, 75, 'lato', this.level, 120).setOrigin(0, .5).setTint(0xff0000).setAlpha(1);
 
         this.match3 = new Match3({
             rows: gameOptions.rows,
@@ -63,6 +63,12 @@ class playGame extends Phaser.Scene {
         this.bgColor.displayWidth = (gameOptions.cols * gameOptions.gemSize)
         this.bgColor.displayHeight = (gameOptions.rows * gameOptions.gemSize)
 
+        this.levelProgressbg = this.add.image(this.bgBorder.x, this.bgBorder.y + 315, 'square').setOrigin(1).setTint(0xffffff)
+        this.levelProgressbg.displayWidth = 70
+        this.levelProgressbg.displayHeight = 315
+        this.levelProgress = this.add.image(this.bgBorder.x - 10, this.bgBorder.y + 305, 'square').setOrigin(1).setTint(0xff0000)
+        this.levelProgress.displayWidth = 50
+        this.levelProgress.displayHeight = 0
 
         if (load) {
             this.match3.loadGame();
@@ -89,6 +95,7 @@ class playGame extends Phaser.Scene {
         this.makeMenu()
     }
     update() {
+
         if (this.scoreBuffer > 0) {
             this.incrementScore();
             this.scoreBuffer--;
@@ -97,6 +104,8 @@ class playGame extends Phaser.Scene {
             this.decrementScore();
             this.scoreBuffer++;
         }
+        this.normalizedScore = this.score / this.level
+        this.levelProgress.displayHeight = (this.normalizedScore / (2000 * this.level)) * 300
     }
     incrementScore() {
         this.tempScore += 1;
@@ -107,9 +116,18 @@ class playGame extends Phaser.Scene {
         this.scoreText.setText(this.tempScore);
     }
     levelCheck() {
-        var normalizedScore = this.score / this.level
-        console.log(normalizedScore)
-        if (normalizedScore > (1000 * this.level)) {
+        var crossChance = 10
+        var crossMin = 0
+
+        console.log(this.normalizedScore)
+
+        if (this.normalizedScore > (2000 * this.level)) {
+            //this.levelProgress.displayHeight = 0
+            var tween = this.tweens.add({
+                targets: this.levelProgress,
+                displayHeight: 0,
+                duration: 500
+            })
             this.level++
             this.levelText.setText(this.level)
             this.showToast('Level Up!')
@@ -119,32 +137,47 @@ class playGame extends Phaser.Scene {
             }
             if (this.level == 4) {
                 this.addClosed(5)
-
+                var crossChance = 12
             }
             if (this.level == 5) {
                 var blanks = this.match3.addBlanks(8)
                 this.drawBlanks(blanks)
-
+                var crossChance = 16
             }
-
+            if (this.level == 6) {
+                this.addClosed(5)
+                var blanks = this.match3.addBlanks(8)
+                this.drawBlanks(blanks)
+                var crossChance = 18
+            }
 
             if (this.level == 7) {
                 var blanks = this.match3.addBlanks(this.getRandomNumberBetween(5, 12))
                 this.drawBlanks(blanks)
-
+                var crossChance = 20
+                var crossMin = 1
             }
-            if (this.level == 10) {
+            if (this.level == 8) {
                 gameOptions.items = 5;
+                var crossChance = 30
+                var crossMin = 2
+                this.addClosed(5)
+            }
+            if (this.level == 9) {
+                var blanks = this.match3.addBlanks(this.getRandomNumberBetween(5, 12))
+                this.drawBlanks(blanks)
+                var crossChance = 32
+                var crossMin = 2
             }
             if (this.level == 12) {
                 gameOptions.items = 6;
             }
         }
         if (this.getRandomNumberBetween(1, 100) < 12) {
-            this.addCoins(this.getRandomNumberBetween(1, 5))
+            this.addCoins(this.getRandomNumberBetween(0, 4))
         }
-        if (this.getRandomNumberBetween(1, 100) < 10) {
-            this.addCross(this.getRandomNumberBetween(0, 3))
+        if (this.getRandomNumberBetween(1, 100) < crossChance) {
+            this.addCross(this.getRandomNumberBetween(crossMin, 3))
         }
     }
     breakLockStart() {
@@ -238,10 +271,28 @@ class playGame extends Phaser.Scene {
                 this.match3.setCustomData(i, j, gem);
             }
         }
-        this.addCoins(2)
-        this.addCross(2)
+        if (load) {
+            this.loadExtra()
+        } else {
+            this.addCoins(2)
+            this.addCross(2)
+        }
+
 
         //console.log(this.match3.gameArray)
+    }
+    loadExtra() {
+        for (let i = 0; i < this.match3.getRows(); i++) {
+            for (let j = 0; j < this.match3.getColumns(); j++) {
+                if (saveData.gameArrayExtra[i][j] == 'coin') {
+                    this.addCoins(1, true, i, j)
+                } else if (saveData.gameArrayExtra[i][j] == 'cross') {
+                    this.addCross(1, true, i, j)
+                } else if (saveData.gameArrayExtra[i][j] == 'closed') {
+                    this.addClosed(1, true, i, j)
+                }
+            }
+        }
     }
     drawBlanks(blanks) {
         for (var i = 0; i < blanks.length; i++) {
@@ -249,11 +300,16 @@ class playGame extends Phaser.Scene {
         }
         this.blanksExist = true
     }
-    addCoins(count) {
+    addCoins(count, doLoad, row, col) {
         var i = 0
         while (i < count) {
-            var row = Phaser.Math.Between(0, gameOptions.rows - 1)
-            var col = Phaser.Math.Between(0, gameOptions.cols - 1)
+            if (doLoad) {
+
+            } else {
+                var row = Phaser.Math.Between(0, gameOptions.rows - 1)
+                var col = Phaser.Math.Between(0, gameOptions.cols - 1)
+            }
+
             if (this.match3.extraEmpty(row, col)) {
                 //this.gameArrayExtra[row][col].coin = true;
                 let gemX = -75
@@ -273,38 +329,60 @@ class playGame extends Phaser.Scene {
             }
         }
     }
-    addCross(count) {
+    addCross(count, doLoad, row, col) {
         var i = 0
         while (i < count) {
-            var row = Phaser.Math.Between(0, gameOptions.rows - 1)
-            var col = Phaser.Math.Between(0, gameOptions.cols - 1)
+            if (doLoad) {
+
+            } else {
+                var row = Phaser.Math.Between(0, gameOptions.rows - 1)
+                var col = Phaser.Math.Between(0, gameOptions.cols - 1)
+            }
             if (this.match3.extraEmpty(row, col)) {
                 //this.gameArrayExtra[row][col].coin = true;
-                let gemX = gameOptions.boardOffset.x + gameOptions.gemSize * col + gameOptions.gemSize / 2
+                let gemX = -75
                 let gemY = gameOptions.boardOffset.y + gameOptions.gemSize * row + gameOptions.gemSize / 2
                 var block = this.add.image(gemX, gemY, 'gems', 16).setAlpha(1);
                 block.displayWidth = gameOptions.gemSize;
                 block.displayHeight = gameOptions.gemSize;
                 block.extraType = 'cross'
                 this.match3.setExtra(row, col, block)
+                var tween = this.tweens.add({
+                    targets: block,
+                    x: gameOptions.boardOffset.x + gameOptions.gemSize * col + gameOptions.gemSize / 2,
+                    angle: 360,
+                    duration: 200
+                })
+                i++
                 i++
             }
         }
     }
-    addClosed(count) {
+    addClosed(count, doLoad, row, col) {
         var i = 0
         while (i < count) {
-            var row = Phaser.Math.Between(0, gameOptions.rows - 1)
-            var col = Phaser.Math.Between(0, gameOptions.cols - 1)
+            if (doLoad) {
+
+            } else {
+                var row = Phaser.Math.Between(0, gameOptions.rows - 1)
+                var col = Phaser.Math.Between(0, gameOptions.cols - 1)
+            }
             if (this.match3.extraEmpty(row, col)) {
                 //this.gameArrayExtra[row][col].coin = true;
-                let gemX = gameOptions.boardOffset.x + gameOptions.gemSize * col + gameOptions.gemSize / 2
+                let gemX = -75
                 let gemY = gameOptions.boardOffset.y + gameOptions.gemSize * row + gameOptions.gemSize / 2
                 var block = this.add.image(gemX, gemY, 'gems', 17).setAlpha(1);
                 block.displayWidth = gameOptions.gemSize;
                 block.displayHeight = gameOptions.gemSize;
                 block.extraType = 'closed'
                 this.match3.setExtra(row, col, block)
+                var tween = this.tweens.add({
+                    targets: block,
+                    x: gameOptions.boardOffset.x + gameOptions.gemSize * col + gameOptions.gemSize / 2,
+                    angle: 360,
+                    duration: 200
+                })
+                i++
                 i++
             }
         }
@@ -598,8 +676,10 @@ class playGame extends Phaser.Scene {
     }
     saveGame() {
         var board = this.match3.getBoard()
-        //console.log(board)
+        var boardExtra = this.match3.getBoardExtra()
+        console.log(boardExtra)
         saveData.gameArray = board
+        saveData.gameArrayExtra = boardExtra
         saveData.score = this.score
         saveData.matches = this.matches
         saveData.level = this.level

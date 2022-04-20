@@ -74,6 +74,22 @@ class Match3 {
     }
     return gameSave
   }
+  getBoardExtra() {
+    var gameSave = [];
+
+    for (let i = 0; i < this.rows; i++) {
+      gameSave[i] = [];
+      for (let j = 0; j < this.columns; j++) {
+
+        if (this.gameArrayExtra[i][j] == null) {
+          gameSave[i][j] = null
+        } else {
+          gameSave[i][j] = this.gameArrayExtra[i][j].extraType
+        }
+      }
+    }
+    return gameSave
+  }
   // locks a random Item and returns item coordinates, or false
   lockRandomItem() {
     let unlockedItems = [];
