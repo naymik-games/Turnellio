@@ -28,7 +28,8 @@ let defaultSave = {
   extraArray: [],
   score: 0,
   level: 0,
-  matches: 0
+  matches: 0,
+  items: 4
 
 }
 let load = false;

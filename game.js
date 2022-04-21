@@ -33,6 +33,7 @@ class playGame extends Phaser.Scene {
             this.tempScore = this.score
             this.matches = saveData.matches
             this.level = saveData.level
+            gameOptions.items = saveData.items
         } else {
             this.score = 0
             this.tempScore = 0
@@ -159,6 +160,7 @@ class playGame extends Phaser.Scene {
             }
             if (this.level == 8) {
                 gameOptions.items = 5;
+                saveData.items = gameOptions.items
                 var crossChance = 30
                 var crossMin = 2
                 this.addClosed(5)
@@ -171,6 +173,7 @@ class playGame extends Phaser.Scene {
             }
             if (this.level == 12) {
                 gameOptions.items = 6;
+                saveData.items = gameOptions.items
             }
         }
         if (this.getRandomNumberBetween(1, 100) < 12) {
