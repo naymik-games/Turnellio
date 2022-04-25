@@ -39,6 +39,7 @@ class playGame extends Phaser.Scene {
             this.tempScore = 0
             this.matches = 0
             this.level = 1
+            gameOptions.items = 4
         }
         this.scoreText = this.add.bitmapText(450, 75, 'lato', this.tempScore, 105).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
 
@@ -85,7 +86,7 @@ class playGame extends Phaser.Scene {
         this.breakLockIcon = this.add.image(gameOptions.boardOffset.x, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 50, 'unlocked').setOrigin(0).setInteractive()
         this.breakLockIcon.on('pointerdown', this.breakLockStart, this)
         this.destroyTileIcon = this.add.image(gameOptions.boardOffset.x + 125, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 50, 'remove').setOrigin(0).setInteractive()
-        this.destroyTileIcon.on('pointerup', this.destroyTileStart, this)
+        this.destroyTileIcon.on('pointerdown', this.destroyTileStart, this)
 
         this.coinIcon = this.add.image(75, 1550, 'gems', 14)
         this.coinText = this.add.bitmapText(75, 1550, 'lato', this.coins, 45).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
@@ -686,6 +687,7 @@ class playGame extends Phaser.Scene {
         saveData.score = this.score
         saveData.matches = this.matches
         saveData.level = this.level
+        saveData.items = gameOptions.items
         localStorage.setItem('nmLoad', JSON.stringify(saveData));
         gameData.coins = this.coins
         localStorage.setItem('nmSave', JSON.stringify(gameData));

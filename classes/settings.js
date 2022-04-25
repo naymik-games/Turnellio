@@ -19,7 +19,8 @@ let defaultData = {
   coins: 0,
   level: 0,
   score: 0,
-  highScores: [0, 0, 0, 0, 0]
+  highScores: [0, 0, 0, 0, 0],
+
 
 }
 let saveData;
