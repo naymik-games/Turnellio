@@ -679,6 +679,7 @@ class playGame extends Phaser.Scene {
         this.handleMatches()
     }
     saveGame() {
+        localStorage.removeItem("nmLoad");
         var board = this.match3.getBoard()
         var boardExtra = this.match3.getBoardExtra()
         //console.log(boardExtra)
