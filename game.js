@@ -83,10 +83,28 @@ class playGame extends Phaser.Scene {
         this.canPick = true;
         this.drawField();
 
-        this.breakLockIcon = this.add.image(gameOptions.boardOffset.x, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 50, 'unlocked').setOrigin(0).setInteractive()
+        this.breakLockIcon = this.add.image(gameOptions.boardOffset.x, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 125, 'unlocked').setOrigin(0).setInteractive().setTint(0x333333)
+        this.breakLockIcon.available = false
         this.breakLockIcon.on('pointerdown', this.breakLockStart, this)
-        this.destroyTileIcon = this.add.image(gameOptions.boardOffset.x + 125, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 50, 'remove').setOrigin(0).setInteractive()
+        this.destroyTileIcon = this.add.image(gameOptions.boardOffset.x + 125, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 125, 'remove').setOrigin(0).setInteractive().setTint(0x333333)
+        this.destroyTileIcon.available = false
         this.destroyTileIcon.on('pointerdown', this.destroyTileStart, this)
+        ////
+        if (load) {
+            if (saveData.unlock) {
+                this.breakLockIcon.available = true
+                this.breakLockIcon.setTint(0xffffff)
+            }
+            if (saveData.break) {
+                this.destroyTileIcon.available = true
+                this.destroyTileIcon.setTint(0xffffff)
+            }
+        }
+        this.createNumbers()
+        this.selectedNumber = null
+        ////
+
+
 
         this.coinIcon = this.add.image(75, 1550, 'gems', 14)
         this.coinText = this.add.bitmapText(75, 1550, 'lato', this.coins, 45).setOrigin(.5).setTint(0xf5f5f5).setAlpha(1);
@@ -108,6 +126,104 @@ class playGame extends Phaser.Scene {
         }
         this.normalizedScore = this.score / this.level
         this.levelProgress.displayHeight = (this.normalizedScore / (2000 * this.level)) * 300
+    }
+    createNumbers() {
+        this.numbers = []
+        if (load) {
+            var num = saveData.numbers
+        } else {
+            var num = 1
+        }
+        for (var i = 0; i < num; i++) {
+            let randomValue = Math.floor(Math.random() * gameOptions.items);
+            let gemX = gameOptions.boardOffset.x + gameOptions.gemSize * i + gameOptions.gemSize / 2
+            let gemY = (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 20
+            let gem = this.add.sprite(gemX, gemY, "gems", randomValue + 6).setInteractive();
+            gem.displayWidth = gameOptions.gemSize;
+            gem.displayHeight = gameOptions.gemSize;
+            gem.number = randomValue + 1
+            gem.available = false
+            gem.slot = i;
+            gem.on('pointerup', this.selectNumber.bind(this, gem));
+            this.numbers.push(gem)
+        }
+    }
+    addNumbers() {
+        var i = this.numbers.length
+        let randomValue = Math.floor(Math.random() * gameOptions.items);
+        let gemX = gameOptions.boardOffset.x + gameOptions.gemSize * i + gameOptions.gemSize / 2
+        let gemY = (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 20
+        let gem = this.add.sprite(gemX, gemY, "gems", randomValue + 6).setInteractive();
+        gem.displayWidth = gameOptions.gemSize;
+        gem.displayHeight = gameOptions.gemSize;
+        gem.number = randomValue + 1
+        gem.available = false
+        gem.slot = i;
+        gem.on('pointerup', this.selectNumber.bind(this, gem));
+        this.numbers.push(gem)
+    }
+    selectNumber(t) {
+        if (!t.available) { return }
+        if (this.selectedNumber == null) {
+            this.numbers[t.slot].displayWidth += 15
+            this.numbers[t.slot].displayHeight += 15
+            this.selectedNumber = { value: t.number, slot: t.slot }
+            console.log(this.selectedNumber)
+        }
+
+    }
+    getFirstAvailable() {
+        for (var i = 0; i < this.numbers.length; i++) {
+            if (this.numbers[i].available) {
+                return i
+            }
+        }
+    }
+    getFirstOpen() {
+        for (var i = 0; i < this.numbers.length; i++) {
+            if (!this.numbers[i].available) {
+                return i
+            }
+        }
+        return -1
+    }
+    doNumber(pointer) {
+        console.log('swith number')
+        let row = Math.floor((pointer.y - gameOptions.boardOffset.y) / gameOptions.gemSize);
+        let col = Math.floor((pointer.x - gameOptions.boardOffset.x) / gameOptions.gemSize);
+        if (this.match3.validPick(row, col)) {
+            // console.log('break continue')
+            if (this.match3.isLocked(row, col)) {
+                this.match3.unlockAt(row, col)
+            }
+            this.match3.setValueAt(row, col, this.selectedNumber.value - 1)
+            this.match3.customDataOf(row, col).setFrame(this.selectedNumber.value - 1);
+            var tween = this.tweens.add({
+                targets: this.match3.customDataOf(row, col),
+                displayWidth: this.match3.customDataOf(row, col).displayWidth + 35,
+                displayHeight: this.match3.customDataOf(row, col).displayHeight + 35,
+                yoyo: true,
+                duration: 200,
+                onYoyoScope: this,
+                onYoyo: function () {
+                    //this.handleMatches();
+                }
+            })
+            let randomValue = Math.floor(Math.random() * gameOptions.items);
+            this.numbers[this.selectedNumber.slot].number = randomValue + 1
+            this.numbers[this.selectedNumber.slot].available = false
+            this.numbers[this.selectedNumber.slot].setFrame(randomValue + 6)
+            this.numbers[this.selectedNumber.slot].displayHeight = gameOptions.gemSize
+            this.numbers[this.selectedNumber.slot].displayWidth = gameOptions.gemSize
+            this.selectedNumber = null
+            /* if (this.match3.matchInBoard()) {
+                this.time.addEvent({
+                    delay: 250,
+                    callback: this.handleMatches()
+                });
+            } */
+
+        }
     }
     incrementScore() {
         this.tempScore += 1;
@@ -131,8 +247,18 @@ class playGame extends Phaser.Scene {
                 duration: 500
             })
             this.level++
+            if (this.numbers.length < 9) {
+                this.addNumbers()
+            }
+
             this.levelText.setText(this.level)
             this.showToast('Level Up!')
+
+            if (this.level == 2) {
+
+            }
+
+
             if (this.level == 3) {
                 var blanks = this.match3.addBlanks(this.getRandomNumberBetween(2, 5))
                 this.drawBlanks(blanks)
@@ -142,35 +268,44 @@ class playGame extends Phaser.Scene {
                 var crossChance = 12
             }
             if (this.level == 5) {
-                var blanks = this.match3.addBlanks(8)
+                var blanks = this.match3.addBlanks(10)
                 this.drawBlanks(blanks)
                 var crossChance = 16
             }
             if (this.level == 6) {
-                this.addClosed(5)
+                this.addClosed(6)
                 var blanks = this.match3.addBlanks(8)
                 this.drawBlanks(blanks)
                 var crossChance = 18
+                this.addLocks()
             }
 
             if (this.level == 7) {
-                var blanks = this.match3.addBlanks(this.getRandomNumberBetween(5, 12))
+                var blanks = this.match3.addBlanks(this.getRandomNumberBetween(7, 12))
                 this.drawBlanks(blanks)
-                var crossChance = 20
+                var crossChance = 25
                 var crossMin = 1
             }
             if (this.level == 8) {
                 gameOptions.items = 5;
                 saveData.items = gameOptions.items
-                var crossChance = 30
+                var crossChance = 35
                 var crossMin = 2
                 this.addClosed(5)
+                this.addLocks()
             }
             if (this.level == 9) {
-                var blanks = this.match3.addBlanks(this.getRandomNumberBetween(5, 12))
+                var blanks = this.match3.addBlanks(this.getRandomNumberBetween(9, 14))
                 this.drawBlanks(blanks)
                 var crossChance = 32
                 var crossMin = 2
+            }
+            if (this.level == 10) {
+                var blanks = this.match3.addBlanks(this.getRandomNumberBetween(10, 17))
+                this.drawBlanks(blanks)
+                var crossChance = 40
+                var crossMin = 3
+                this.addLocks()
             }
             if (this.level == 12) {
                 gameOptions.items = 6;
@@ -178,17 +313,29 @@ class playGame extends Phaser.Scene {
             }
         }
         if (this.getRandomNumberBetween(1, 100) < 12) {
-            this.addCoins(this.getRandomNumberBetween(0, 4))
+            this.addCoins(this.getRandomNumberBetween(0, 2))
         }
         if (this.getRandomNumberBetween(1, 100) < crossChance) {
             this.addCross(this.getRandomNumberBetween(crossMin, 3))
         }
     }
+    addLocks() {
+        for (let i = 0; i < 5; i++) {
+            let locked = this.match3.lockRandomItem();
+            this.scoreBuffer -= 100
+            this.score -= 100
+            if (locked) {
+                this.match3.customDataOf(locked.row, locked.column).setFrame(6 + this.match3.valueAt(locked.row, locked.column));
+            }
+        }
+    }
     breakLockStart() {
+        if (this.breakLockIcon.available) {
+            this.breakLockIcon.setTint(0x00ff00)
+            this.bgBorder.setTint(0x00ff00)
+            this.breakLockFlag = true
+        }
 
-        this.breakLockIcon.setTint(0x00ff00)
-        this.bgBorder.setTint(0x00ff00)
-        this.breakLockFlag = true
         //console.log('break start')
 
     }
@@ -213,14 +360,17 @@ class playGame extends Phaser.Scene {
 
         }
         this.breakLockFlag = false;
-        this.breakLockIcon.clearTint()
+        this.breakLockIcon.setTint(0x333333)
+        this.breakLockIcon.available = false
         this.bgBorder.clearTint()
     }
     destroyTileStart() {
+        if (this.breakLockIcon.available) {
+            this.destroyTileIcon.setTint(0xff0000)
+            this.bgBorder.setTint(0xff0000)
+            this.destroyTileFlag = true
+        }
 
-        this.destroyTileIcon.setTint(0x00ff00)
-        this.bgBorder.setTint(0x00ff00)
-        this.destroyTileFlag = true
         //console.log('destroy start')
 
     }
@@ -260,7 +410,8 @@ class playGame extends Phaser.Scene {
 
         }
         this.destroyTileFlag = false;
-        this.destroyTileIcon.clearTint()
+        this.destroyTileIcon.setTint(0x333333)
+        this.destroyTileIcon.available = false;
         this.bgBorder.clearTint()
     }
     drawField() {
@@ -401,6 +552,10 @@ class playGame extends Phaser.Scene {
         if (this.destroyTileFlag) {
             //console.log('destroy selection')
             this.destroyTile(pointer)
+            return
+        }
+        if (this.selectedNumber != null) {
+            this.doNumber(pointer)
             return
         }
         if (this.canPick) {
@@ -637,6 +792,18 @@ class playGame extends Phaser.Scene {
         }
     }
     collectCoin(row, col) {
+        var slot = this.getFirstOpen()
+        if (slot > -1) {
+            this.numbers[slot].setFrame(this.numbers[slot].frame.name - 6)
+            this.numbers[slot].available = true
+        } else if (!this.breakLockIcon.available) {
+            this.breakLockIcon.available = true
+            this.breakLockIcon.setTint(0xffffff)
+        } else if (!this.destroyTileIcon.available) {
+            this.destroyTileIcon.available = true
+            this.destroyTileIcon.setTint(0xffffff)
+        }
+
         if (this.match3.isCoin(row, col)) {
             //this.addCoinCount(1)
             var tween = this.tweens.add({
@@ -689,6 +856,9 @@ class playGame extends Phaser.Scene {
         saveData.matches = this.matches
         saveData.level = this.level
         saveData.items = gameOptions.items
+        saveData.unlock = this.breakLockIcon.available
+        saveData.break = this.destroyTileIcon.available
+        saveData.numbers = this.numbers.length
         localStorage.setItem('nmLoad', JSON.stringify(saveData));
         gameData.coins = this.coins
         localStorage.setItem('nmSave', JSON.stringify(gameData));

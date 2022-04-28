@@ -1,4 +1,4 @@
-var cacheName = 'phaser-v1';
+var cacheName = 'numberMatch v1.2';
 var filesToCache = [
   '/',
   '/index.html',
