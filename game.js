@@ -89,6 +89,10 @@ class playGame extends Phaser.Scene {
         this.destroyTileIcon = this.add.image(gameOptions.boardOffset.x + 125, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 125, 'remove').setOrigin(0).setInteractive().setTint(0x333333)
         this.destroyTileIcon.available = false
         this.destroyTileIcon.on('pointerdown', this.destroyTileStart, this)
+
+        this.shuffleTileIcon = this.add.image(gameOptions.boardOffset.x + 250, (gameOptions.boardOffset.y + gameOptions.gemSize * gameOptions.rows + gameOptions.gemSize / 2) + 125, 'shuffle').setOrigin(0).setInteractive().setTint(0x333333)
+        this.shuffleTileIcon.available = false
+        this.shuffleTileIcon.on('pointerdown', this.shuffleTileStart, this)
         ////
         if (load) {
             if (saveData.unlock) {
@@ -125,7 +129,9 @@ class playGame extends Phaser.Scene {
             this.scoreBuffer++;
         }
         this.normalizedScore = this.score / this.level
-        this.levelProgress.displayHeight = (this.normalizedScore / (2000 * this.level)) * 300
+        var per = (this.normalizedScore / (2000 * this.level))
+
+        this.levelProgress.displayHeight = Phaser.Math.Clamp(per, 0, 1) * 300
     }
     createNumbers() {
         this.numbers = []
@@ -165,10 +171,10 @@ class playGame extends Phaser.Scene {
     selectNumber(t) {
         if (!t.available) { return }
         if (this.selectedNumber == null) {
-            this.numbers[t.slot].displayWidth += 15
-            this.numbers[t.slot].displayHeight += 15
+            this.numbers[t.slot].displayWidth += 20
+            this.numbers[t.slot].displayHeight += 20
             this.selectedNumber = { value: t.number, slot: t.slot }
-            console.log(this.selectedNumber)
+            //console.log(this.selectedNumber)
         }
 
     }
@@ -188,7 +194,7 @@ class playGame extends Phaser.Scene {
         return -1
     }
     doNumber(pointer) {
-        console.log('swith number')
+        //console.log('swith number')
         let row = Math.floor((pointer.y - gameOptions.boardOffset.y) / gameOptions.gemSize);
         let col = Math.floor((pointer.x - gameOptions.boardOffset.x) / gameOptions.gemSize);
         if (this.match3.validPick(row, col)) {
@@ -204,9 +210,13 @@ class playGame extends Phaser.Scene {
                 displayHeight: this.match3.customDataOf(row, col).displayHeight + 35,
                 yoyo: true,
                 duration: 200,
-                onYoyoScope: this,
+                callbackScope: this,
                 onYoyo: function () {
-                    //this.handleMatches();
+                    //
+                },
+                onComplete: function () {
+                    //this.canPick = true
+                    this.handleMatches();
                 }
             })
             let randomValue = Math.floor(Math.random() * gameOptions.items);
@@ -363,6 +373,13 @@ class playGame extends Phaser.Scene {
         this.breakLockIcon.setTint(0x333333)
         this.breakLockIcon.available = false
         this.bgBorder.clearTint()
+    }
+    shuffleTileStart() {
+        if (this.shuffleTileIcon.available) {
+            this.match3.findAllDotValues()
+            this.shuffleTileIcon.setTint(0x333333)
+            this.shuffleTileIcon.available = false
+        }
     }
     destroyTileStart() {
         if (this.breakLockIcon.available) {
@@ -556,6 +573,7 @@ class playGame extends Phaser.Scene {
         }
         if (this.selectedNumber != null) {
             this.doNumber(pointer)
+            this.canPick = false
             return
         }
         if (this.canPick) {
@@ -802,6 +820,9 @@ class playGame extends Phaser.Scene {
         } else if (!this.destroyTileIcon.available) {
             this.destroyTileIcon.available = true
             this.destroyTileIcon.setTint(0xffffff)
+        } else if (!this.shuffleTileIcon.available) {
+            this.shuffleTileIcon.available = true
+            this.shuffleTileIcon.setTint(0xffffff)
         }
 
         if (this.match3.isCoin(row, col)) {

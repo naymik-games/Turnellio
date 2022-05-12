@@ -260,7 +260,32 @@ class Match3 {
       deltaColumn: column2 - column
     }]
   }
+  findAllDotValues() {
+    var positions = [];
+    this.gameArray.forEach(function (row, r) {
+      row.forEach(function (dot, c) {
+        if (dot.value < 12) {
+          positions.push(dot.value);
+          //dot.image.clearTint()
+        }
+      });
+    });
+    this.shuffle(positions)
+    this.applyShuffle(positions)
+  }
+  applyShuffle(dotValues) {
+    var index = 0
+    this.gameArray.forEach(function (row, r) {
+      row.forEach(function (dot, c) {
+        if (dot.value < 12) {
+          this.setValueAt(r, c, dotValues[index])
 
+          this.setCustomDataFrame(r, c, dotValues[index])
+          index++
+        }
+      }.bind(this));
+    }.bind(this));
+  }
   // return the items part of a match in the board as an array of {row, column} object
   getMatchList() {
     let matches = [];
@@ -450,5 +475,22 @@ class Match3 {
         }
       }
     }
+  }
+  shuffle(array) {
+    let currentIndex = array.length, randomIndex;
+
+    // While there remain elements to shuffle.
+    while (currentIndex != 0) {
+
+      // Pick a remaining element.
+      randomIndex = Math.floor(Math.random() * currentIndex);
+      currentIndex--;
+
+      // And swap it with the current element.
+      [array[currentIndex], array[randomIndex]] = [
+        array[randomIndex], array[currentIndex]];
+    }
+
+    return array;
   }
 }

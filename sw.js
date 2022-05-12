@@ -23,6 +23,7 @@ var filesToCache = [
   '/assets/sprites/remove.png',
   '/assets/sprites/square.png',
   '/assets/sprites/unlocked.png',
+  '/assets/sprites/shuffle.png',
 
 
   //'https://cdn.jsdelivr.net/gh/photonstorm/phaser@3.10.1/dist/phaser.min.js'

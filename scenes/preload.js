@@ -75,6 +75,7 @@ class preloadGame extends Phaser.Scene {
     this.load.image("menu", "assets/sprites/menu.png");
     this.load.image("unlocked", "assets/sprites/unlocked.png");
     this.load.image("remove", "assets/sprites/remove.png");
+    this.load.image("shuffle", "assets/sprites/shuffle.png");
     this.load.spritesheet("particles", "assets/sprites/particles.png", {
       frameWidth: 6,
       frameHeight: 6
